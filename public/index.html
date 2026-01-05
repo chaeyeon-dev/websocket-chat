@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Chat</title>
+
+  <style>
+    /* 기본 초기화 */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+      background-color: #f8f9fa;
+      background-image: radial-gradient(#e9ecef 1px, #f8f9fa 1px);
+      background-size: 24px 24px;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 메인 컨테이너 */
+    .container {
+      width: 420px;
+      height: 680px;
+      background: #ffffff;
+      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      border: 1.5px solid #eaeaea; 
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+    }
+
+    h2 {
+      padding: 22px;
+      font-size: 1.1rem;
+      text-align: center;
+      background: #fff;
+      color: #111;
+      border-bottom: 1.5px solid #f1f3f5;
+    }
+
+    .hidden { display: none !important; }
+
+    /* 입장 화면 */
+    .join-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 40px;
+      gap: 15px;
+    }
+
+    .join-box p { font-size: 1.1rem; font-weight: 700; text-align: center; }
+
+    input {
+      padding: 14px 18px;
+      border: 1.5px solid #eee;
+      border-radius: 14px;
+      background: #fbfbfb;
+      outline: none;
+    }
+
+    .join-box button { padding: 16px; background: #1a1a1a; color: white; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; }
+
+    /* 채팅 화면 */
+    #chatBox { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .top-status { padding: 10px; font-size: 12px; text-align: center; background: #fcfcfc; color: #999; border-bottom: 1px solid #f1f3f5; }
+
+    #chat {
+      flex: 1;
+      list-style: none;
+      padding: 20px;
+      overflow-y: auto;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 18px; /* 말풍선 사이 간격을 조금 더 넓힘 */
+    }
+
+    /* 🎯 말풍선 및 닉네임 구조 수정 */
+    .msg-wrapper {
+      display: flex;
+      flex-direction: column;
+      max-width: 80%;
+    }
+
+    /* 상대방 메시지는 왼쪽 정렬, 내 메시지는 오른쪽 정렬 */
+    .msg-wrapper.other { align-self: flex-start; }
+    .msg-wrapper.me { align-self: flex-end; }
+
+    .sender-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 4px;
+      margin-left: 4px; /* 말풍선과 라인 맞춤 */
+    }
+
+    .bubble {
+      padding: 11px 16px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .msg-wrapper.me .bubble {
+      background: #1a1a1a;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-wrapper.other .bubble {
+      background: #f1f3f5;
+      color: #333;
+      border: 1px solid #eee;
+      border-bottom-left-radius: 4px;
+    }
+
+    .system-msg {
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+      margin: 10px 0;
+    }
+
+    /* 입력 영역 */
+    .input-area { padding: 20px; background: #fff; display: flex; gap: 10px; border-top: 1.5px solid #f1f3f5; }
+    .input-area input { flex: 1; border-radius: 25px; }
+    .input-area button { width: 45px; height: 45px; border-radius: 50%; background: #1a1a1a; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>💬 WebSocket Chat</h2>
+
+    <div id="joinBox" class="join-box">
+      <p>반가워요! 이름을 알려주세요</p>
+      <input id="name" placeholder="닉네임 입력..." />
+      <button onclick="joinChat()">시작하기</button>
+    </div>
+
+    <div id="chatBox" class="hidden">
+      <div class="top-status"><span id="myNameText"></span> 님으로 대화 중</div>
+      <ul id="chat"></ul>
+      <div class="input-area">
+        <input id="msg" placeholder="메시지를 입력하세요..." />
+        <button onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let myId = Math.random().toString(36).substring(2, 7);
+    let myName = "";
+    let lastSenderId = null;
+
+    function joinChat() {
+      
+      const nameInput = document.getElementById("name");
+      myName = nameInput.value.trim();
+      if (!myName) { alert("닉네임을 입력하세요!"); return; }
+      document.getElementById("joinBox").classList.add("hidden");
+      document.getElementById("chatBox").classList.remove("hidden");
+      document.getElementById("myNameText").textContent = myName;
+      connect();
+    }
+
+    function connect() {
+  socket = new WebSocket("ws://localhost:8080");
+
+  // ⭐⭐⭐ 이 부분이 핵심 (입장 메시지 전송)
+  socket.onopen = () => {
+    socket.send(JSON.stringify({
+      type: "join",
+      name: myName
+    }));
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    const chat = document.getElementById("chat");
+
+    // ✅ 시스템 메시지 처리
+    if (data.type === "system") {
+      const sys = document.createElement("li"); // ⭐ div → li
+      sys.className = "system-msg";
+      sys.textContent = `— ${data.text} —`;
+      chat.appendChild(sys);
+      chat.scrollTop = chat.scrollHeight;
+      return;
+    }
+
+    if (data.type !== "chat") return;
+
+    // ✅ 일반 채팅 메시지
+    const isMe = data.id === myId;
+    const wrapper = document.createElement("div");
+    wrapper.className = `msg-wrapper ${isMe ? 'me' : 'other'}`;
+
+    let htmlContent = "";
+    if (!isMe && data.id !== lastSenderId) {
+      htmlContent += `<span class="sender-name">${data.name}</span>`;
+    }
+    htmlContent += `<div class="bubble">${data.msg}</div>`;
+    wrapper.innerHTML = htmlContent;
+
+    chat.appendChild(wrapper);
+    chat.scrollTop = chat.scrollHeight;
+
+    lastSenderId = data.id;
+  };
+}
+
+
+    function sendMessage() {
+      const input = document.getElementById("msg");
+      if (!socket || socket.readyState !== WebSocket.OPEN || !input.value.trim()) return;
+      socket.send(JSON.stringify({
+        type: "chat",
+        id: myId,
+        name: myName,
+        msg: input.value
+      }));
+      input.value = "";
+      input.focus();
+    }
+
+    document.getElementById("msg").addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+  </script>
+</body>
+</html>
