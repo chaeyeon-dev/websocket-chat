@@ -1,6 +1,8 @@
 const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({ port: 8080 });
+// ⭐ Render/Railway 배포용 포트 설정
+const PORT = process.env.PORT || 8080;
+const wss = new WebSocket.Server({ port: PORT });
 
 wss.on('connection', (ws) => {
   console.log('✅ 클라이언트 접속됨');
@@ -8,11 +10,10 @@ wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     const data = JSON.parse(message.toString());
 
-    // ✅ 입장 등록
+    // ✅ 입장
     if (data.type === "join") {
       ws.name = data.name;
 
-      // 입장 메시지 브로드캐스트
       const joinMsg = JSON.stringify({
         type: "system",
         text: `${data.name} 님이 입장했습니다`
@@ -26,7 +27,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ✅ 일반 채팅 메시지 브로드캐스트
+    // ✅ 채팅
     if (data.type === "chat") {
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -36,12 +37,10 @@ wss.on('connection', (ws) => {
     }
   });
 
+  // ✅ 퇴장
   ws.on('close', () => {
-    console.log('❌ 클라이언트 연결 종료');
-
     if (!ws.name) return;
 
-    // ✅ 퇴장 메시지
     const leaveMsg = JSON.stringify({
       type: "system",
       text: `${ws.name} 님이 나갔습니다`
@@ -55,4 +54,4 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('🚀 WebSocket 서버 실행 중 (ws://localhost:8080)');
+console.log(`🚀 WebSocket 서버 실행 중 (port: ${PORT})`);
