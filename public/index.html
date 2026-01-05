@@ -175,7 +175,7 @@
     }
 
     function connect() {
-  socket = new WebSocket("ws://localhost:8080");
+  socket = new WebSocket("wss://websocket-chat.onrender.com");
 
   // ⭐⭐⭐ 이 부분이 핵심 (입장 메시지 전송)
   socket.onopen = () => {
