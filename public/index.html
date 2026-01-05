@@ -175,9 +175,8 @@
     }
 
     function connect() {
-  socket = new WebSocket("wss://websocket-chat.onrender.com");
+  socket = new WebSocket("wss://websocket-chat-t1px.onrender.com");
 
-  // ⭐⭐⭐ 이 부분이 핵심 (입장 메시지 전송)
   socket.onopen = () => {
     socket.send(JSON.stringify({
       type: "join",
@@ -189,9 +188,8 @@
     const data = JSON.parse(event.data);
     const chat = document.getElementById("chat");
 
-    // ✅ 시스템 메시지 처리
     if (data.type === "system") {
-      const sys = document.createElement("li"); // ⭐ div → li
+      const sys = document.createElement("li");
       sys.className = "system-msg";
       sys.textContent = `— ${data.text} —`;
       chat.appendChild(sys);
@@ -201,7 +199,6 @@
 
     if (data.type !== "chat") return;
 
-    // ✅ 일반 채팅 메시지
     const isMe = data.id === myId;
     const wrapper = document.createElement("div");
     wrapper.className = `msg-wrapper ${isMe ? 'me' : 'other'}`;
@@ -215,7 +212,6 @@
 
     chat.appendChild(wrapper);
     chat.scrollTop = chat.scrollHeight;
-
     lastSenderId = data.id;
   };
 }
