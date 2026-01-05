@@ -174,10 +174,18 @@
       connect();
     }
 
-    function connect() {
+function connect() {
   socket = new WebSocket("wss://websocket-chat-t1px.onrender.com");
 
+  // ⭐ 서버가 Sleep / 연결 실패일 때
+  socket.onerror = () => {
+    showSystemMessage("서버 연결 중입니다... 잠시만 기다려주세요");
+  };
+
+  // ⭐ 연결 성공
   socket.onopen = () => {
+    showSystemMessage("서버에 연결되었습니다");
+
     socket.send(JSON.stringify({
       type: "join",
       name: myName
@@ -217,6 +225,7 @@
 }
 
 
+
     function sendMessage() {
       const input = document.getElementById("msg");
       if (!socket || socket.readyState !== WebSocket.OPEN || !input.value.trim()) return;
@@ -231,6 +240,15 @@
     }
 
     document.getElementById("msg").addEventListener("keydown", (e) => { if (e.key === "Enter") sendMessage(); });
+
+    function showSystemMessage(text) {
+  const chat = document.getElementById("chat");
+  const li = document.createElement("li");
+  li.className = "system-msg";
+  li.textContent = `— ${text} —`;
+  chat.appendChild(li);
+  chat.scrollTop = chat.scrollHeight;
+}
   </script>
 </body>
 </html>
