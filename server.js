@@ -1,16 +1,25 @@
-const WebSocket = require('ws');
+const http = require("http");
+const WebSocket = require("ws");
 
-// ⭐ Render/Railway 배포용 포트 설정
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocket.Server({ port: PORT });
+// ⭐ Render 배포용 포트 (중요)
+const PORT = process.env.PORT || 10000;
 
-wss.on('connection', (ws) => {
-  console.log('✅ 클라이언트 접속됨');
+// ✅ HTTP 서버 (브라우저 접속용)
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("WebSocket 서버가 실행 중입니다.");
+});
 
-  ws.on('message', (message) => {
+// ✅ WebSocket 서버를 HTTP 서버에 연결
+const wss = new WebSocket.Server({ server });
+
+wss.on("connection", (ws) => {
+  console.log("✅ 클라이언트 접속됨");
+
+  ws.on("message", (message) => {
     const data = JSON.parse(message.toString());
 
-    // ✅ 입장
+    // 입장
     if (data.type === "join") {
       ws.name = data.name;
 
@@ -27,7 +36,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ✅ 채팅
+    // 채팅
     if (data.type === "chat") {
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -37,8 +46,8 @@ wss.on('connection', (ws) => {
     }
   });
 
-  // ✅ 퇴장
-  ws.on('close', () => {
+  // 퇴장
+  ws.on("close", () => {
     if (!ws.name) return;
 
     const leaveMsg = JSON.stringify({
@@ -54,4 +63,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log(`🚀 WebSocket 서버 실행 중 (port: ${PORT})`);
+// ⭐ 서버 시작
+server.listen(PORT, () => {
+  console.log(`🚀 WebSocket 서버 실행 중 (port: ${PORT})`);
+});
